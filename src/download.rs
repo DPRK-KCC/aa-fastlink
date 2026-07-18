@@ -4,13 +4,6 @@ use serde::Deserialize;
 use std::{collections::HashMap, error::Error, fmt, str::FromStr, sync::LazyLock};
 use warp::{Reply, http::Uri, redirect, reject::Rejection, reply::Response};
 
-fn format_error(error: impl Error) -> String {
-    match error.source() {
-        Some(source) => format!("{error}: {source}"),
-        None => error.to_string(),
-    }
-}
-
 pub(super) async fn handle_download(form: HashMap<String, String>) -> Result<Response, Rejection> {
     fn is_valid_link_or_hash(link_or_hash: &str) -> bool {
         link_or_hash.len() >= 32 && link_or_hash.is_ascii() && !link_or_hash.contains(' ')
@@ -31,11 +24,15 @@ pub(super) async fn handle_download(form: HashMap<String, String>) -> Result<Res
                 )
                 .into_response()),
 
-                Err(error) => Ok({
-                    let err_msg = format_error(&*error);
-                    error!("{err_msg}");
-                    err_msg.into_response()
-                }),
+                Err(error) => {
+                    error!(
+                        "{error}{}",
+                        error
+                            .source()
+                            .map_or_else(String::new, |src| format!(": {src}"))
+                    );
+                    Ok(error.to_string().into_response())
+                }
             }
         } else {
             let err_msg = "invalid book URL or hash provided";
@@ -59,6 +56,14 @@ struct FetchError {
     message: String,
 }
 
+impl Error for FetchError {}
+
+impl fmt::Display for FetchError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "DownloadError: {}", self.message)
+    }
+}
+
 impl FetchError {
     #[allow(clippy::unnecessary_box_returns)]
     fn new(error: &str) -> Box<Self> {
@@ -68,28 +73,21 @@ impl FetchError {
     }
 }
 
-impl fmt::Display for FetchError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "DownloadError: {}", self.message)
-    }
-}
-
-impl Error for FetchError {}
-
 static CLIENT: LazyLock<reqwest::Client> = LazyLock::new(reqwest::Client::new);
+
+fn format_url(hash: &str) -> String {
+    format!(
+        "https://{}/dyn/api/fast_download.json?md5={}&key={}",
+        *config::DOMAIN,
+        hash,
+        *config::SECRET
+    )
+}
 
 async fn fetch_fast_download_link(hash: &str) -> Result<String, Box<dyn Error>> {
     debug!("fetching fast_download_link for [{hash}] ({})", hash.len());
 
-    let response_result = CLIENT
-        .get(format!(
-            "https://{}/dyn/api/fast_download.json?md5={}&key={}",
-            *config::DOMAIN,
-            hash,
-            *config::SECRET
-        ))
-        .send()
-        .await;
+    let response_result = CLIENT.get(format_url(hash)).send().await;
     debug!("{response_result:#?}");
 
     let json_result = response_result?
