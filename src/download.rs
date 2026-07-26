@@ -16,9 +16,9 @@ pub(super) async fn handle_download(form: HashMap<String, String>) -> Result<Res
                 link_or_hash.len()
             );
 
-            let hash = link_or_hash[link_or_hash.len() - 32..].to_string(); // needed?
+            let hash = &link_or_hash[link_or_hash.len() - 32..];
 
-            match fetch_fast_download_link(&hash).await {
+            match fetch_fast_download_link(hash).await {
                 Ok(fast_download_link) => Ok(redirect::see_other(
                     Uri::from_str(&fast_download_link).unwrap(),
                 )
@@ -78,9 +78,9 @@ static CLIENT: LazyLock<reqwest::Client> = LazyLock::new(reqwest::Client::new);
 fn format_url(hash: &str) -> String {
     format!(
         "https://{}/dyn/api/fast_download.json?md5={}&key={}",
-        *config::DOMAIN,
+        config::CONFIG.domain,
         hash,
-        *config::SECRET
+        config::CONFIG.secret
     )
 }
 

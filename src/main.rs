@@ -6,21 +6,17 @@ mod version;
 
 #[tokio::main]
 async fn main() {
-    // import configuration constants
-    use config::{BIND_IP, BIND_PORT, DOMAIN, MAX_BODY_SIZE, SECRET};
+    // initialize configuration
+    let _ = config::CONFIG;
 
     // import warp items
     use warp::{Filter, body, get, path, post, serve};
-
-    // ensure environment variables are set
-    let _ = *SECRET;
-    let _ = *DOMAIN;
 
     // define routes
     let routes = get()
         .map(form::render_form)
         .or(post()
-            .and(body::content_length_limit(MAX_BODY_SIZE))
+            .and(body::content_length_limit(config::CONFIG.max_body_size))
             .and(body::form())
             .and(path("dl"))
             .and_then(download::handle_download))
@@ -31,10 +27,16 @@ async fn main() {
 
     // print version and bind address
     log::info!("Running aa-fastlink {}", env!("CARGO_PKG_VERSION"));
-    log::info!("Binding to http://{}:{}", *BIND_IP, *BIND_PORT);
+    log::info!(
+        "Binding to http://{}:{}",
+        config::CONFIG.bind_ip,
+        config::CONFIG.bind_port
+    );
 
     // start server
-    serve(routes).run((*BIND_IP, *BIND_PORT)).await;
+    serve(routes)
+        .run((config::CONFIG.bind_ip, config::CONFIG.bind_port))
+        .await;
 }
 
 // initializes logger with custom settings
@@ -45,7 +47,7 @@ pub fn init_logger() {
 
     builder.format(|buf, record| writeln!(buf, "{}: {}", record.level(), record.args()));
 
-    builder.filter_level(if *config::DEBUG_LOGGING {
+    builder.filter_level(if config::CONFIG.debug_logging {
         log::LevelFilter::Debug
     } else {
         log::LevelFilter::Info

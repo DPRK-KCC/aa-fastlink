@@ -1,38 +1,36 @@
-use std::{env::var, net::IpAddr, sync::LazyLock};
+use clap::Parser;
+use std::{net::IpAddr, sync::LazyLock};
 
-// secret account key, used for API authentication
-pub(crate) static SECRET: LazyLock<String> =
-    LazyLock::new(|| var("AA_SECRET").expect("environment variable AA_SECRET"));
+pub static CONFIG: LazyLock<Config> = LazyLock::new(Config::parse);
 
-// mirror domain, e.g. 'annas-archive.org'
-pub(crate) static DOMAIN: LazyLock<String> =
-    LazyLock::new(|| var("AA_DOMAIN").expect("environment variable AA_DOMAIN"));
+#[derive(Debug, Parser)]
+#[command(version, about)]
+pub struct Config {
+    #[arg(help = "Secret key", env = "AA_SECRET")]
+    pub secret: String,
 
-// bind IP address. default '127.0.0.1'
-pub(crate) static BIND_IP: LazyLock<IpAddr> = LazyLock::new(|| {
-    var("AA_BIND_IP")
-        .unwrap_or_else(|_| "127.0.0.1".into())
-        .parse()
-        .expect("environment variable AA_BIND_IP must be a valid IP address")
-});
+    #[arg(help = "Mirror domain", env = "AA_DOMAIN")]
+    pub domain: String,
 
-// bind port. defaults '3030'
-pub(crate) static BIND_PORT: LazyLock<u16> = LazyLock::new(|| {
-    var("AA_BIND_PORT")
-        .unwrap_or_else(|_| "3030".into())
-        .parse()
-        .expect("environment variable AA_BIND_PORT must be a valid u16")
-});
+    #[arg(help = "Bind IP", env = "AA_BIND_IP", default_value = "127.0.0.1")]
+    pub bind_ip: IpAddr,
 
-// debug logging. default 'true' when using 'debug' profile.
-pub(crate) static DEBUG_LOGGING: LazyLock<bool> = LazyLock::new(|| {
-    cfg!(debug_assertions)
-        || var("AA_DEBUG_LOGGING")
-            .unwrap_or_else(|_| "false".into())
-            .parse()
-            .expect("environment variable AA_DEBUG_LOGGING must be a valid boolean")
-});
+    #[arg(help = "Bind port", env = "AA_BIND_PORT", default_value_t = 3030)]
+    pub bind_port: u16,
 
-// limit max. bytes when receiving book URL/hash.
-// increase when using a longer mirror URL than 'annas-archive.org'
-pub(crate) const MAX_BODY_SIZE: u64 = 96;
+    #[arg(
+        help = "Debug logging",
+        env = "AA_DEBUG_LOGGING",
+        default_value_t = false
+    )]
+    pub debug_logging: bool,
+
+    // limit max. bytes when receiving book URL/hash.
+    // increase when using a longer mirror URL than 'annas-archive.org'
+    #[arg(
+        help = "Maximum HTTP request body size (in bytes)",
+        env = "AA_MAX_BODY_SIZE",
+        default_value_t = 96
+    )]
+    pub max_body_size: u64,
+}
