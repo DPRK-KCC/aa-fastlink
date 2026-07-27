@@ -78,9 +78,9 @@ static CLIENT: LazyLock<reqwest::Client> = LazyLock::new(reqwest::Client::new);
 fn format_url(hash: &str) -> String {
     format!(
         "https://{}/dyn/api/fast_download.json?md5={}&key={}",
-        config::CONFIG.domain,
+        config::CONFIG.domain(),
         hash,
-        config::CONFIG.secret
+        config::CONFIG.secret()
     )
 }
 
