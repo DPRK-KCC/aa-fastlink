@@ -4,11 +4,11 @@ mod form;
 
 #[tokio::main]
 async fn main() {
-    // initialize configuration
-    let cfg = &config::CONFIG;
-
     // import warp items
     use warp::{Filter, body, get, path, post, serve};
+
+    // initialize configuration
+    let cfg = &config::CONFIG;
 
     // define routes
     let routes = get().map(form::render_form).or(post()
@@ -18,7 +18,7 @@ async fn main() {
         .and_then(download::handle_download));
 
     // initialize logger
-    init_logger(&cfg);
+    init_logger(cfg);
 
     // print version and bind address
     log::info!("Running aa-fastlink {}", env!("CARGO_PKG_VERSION"));
