@@ -4,7 +4,7 @@ use serde::Deserialize;
 use std::{collections::HashMap, error::Error, fmt, str::FromStr, sync::LazyLock};
 use warp::{Reply, http::Uri, redirect, reject::Rejection, reply::Response};
 
-pub(super) async fn handle_download(form: HashMap<String, String>) -> Result<Response, Rejection> {
+pub async fn handle_download(form: HashMap<String, String>) -> Result<Response, Rejection> {
     fn is_valid_link_or_hash(link_or_hash: &str) -> bool {
         link_or_hash.len() >= 32 && link_or_hash.is_ascii() && !link_or_hash.contains(' ')
     }
@@ -16,23 +16,27 @@ pub(super) async fn handle_download(form: HashMap<String, String>) -> Result<Res
                 link_or_hash.len()
             );
 
-            let hash = &link_or_hash[link_or_hash.len() - 32..];
-
-            match fetch_fast_download_link(hash).await {
-                Ok(fast_download_link) => Ok(redirect::see_other(
-                    Uri::from_str(&fast_download_link).unwrap(),
-                )
-                .into_response()),
-
-                Err(error) => {
-                    error!(
-                        "{error}{}",
-                        error
-                            .source()
-                            .map_or_else(String::new, |src| format!(": {src}"))
-                    );
-                    Ok(error.to_string().into_response())
+            if let Some(hash) = &link_or_hash.get(link_or_hash.len().saturating_sub(32)..) {
+                match fetch_fast_download_link(hash).await {
+                    Ok(fast_download_link) => match Uri::from_str(&fast_download_link) {
+                        Ok(url) => Ok(redirect::see_other(url).into_response()),
+                        Err(err) => {
+                            error!("failed to parse fast download link as URL: {err}");
+                            Ok("API returned invalid download link".into_response())
+                        }
+                    },
+                    Err(error) => {
+                        error!(
+                            "{error}{}",
+                            error
+                                .source()
+                                .map_or_else(String::new, |src| format!(": {src}"))
+                        );
+                        Ok(error.to_string().into_response())
+                    }
                 }
+            } else {
+                Ok("invalid input provided (past validation)".into_response())
             }
         } else {
             let err_msg = "invalid book URL or hash provided";
@@ -100,9 +104,10 @@ async fn fetch_fast_download_link(hash: &str) -> Result<String, Box<dyn Error>> 
     if let Some(fast_download_link) = api_response.download_url {
         Ok(fast_download_link)
     } else {
-        let err_msg = api_response
-            .error
-            .map_or("unknown error".to_string(), |err| format!("{err} [{hash}]"));
+        let err_msg = api_response.error.map_or_else(
+            || "unknown error".to_string(),
+            |err| format!("{err} [{hash}]"),
+        );
         Err(FetchError::new(&err_msg))
     }
 }
