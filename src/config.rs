@@ -1,3 +1,7 @@
+#![expect(
+    clippy::missing_const_for_fn,
+    reason = "methods will not be called during compile time"
+)]
 use clap::Parser;
 use std::{net::IpAddr, sync::LazyLock};
 
@@ -36,22 +40,18 @@ impl Config {
         &self.domain
     }
 
-    #[allow(clippy::missing_const_for_fn)]
     pub fn bind_ip(&self) -> IpAddr {
         self.bind_ip
     }
 
-    #[allow(clippy::missing_const_for_fn)]
     pub fn bind_port(&self) -> u16 {
         self.bind_port
     }
 
-    #[allow(clippy::missing_const_for_fn)]
     pub fn max_body_size(&self) -> u64 {
         self.max_body_size
     }
 
-    #[allow(clippy::missing_const_for_fn)]
     pub fn debug_logging(&self) -> bool {
         self.debug_logging
     }

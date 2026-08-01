@@ -69,7 +69,10 @@ impl fmt::Display for FetchError {
 }
 
 impl FetchError {
-    #[allow(clippy::unnecessary_box_returns)]
+    #[expect(
+        clippy::unnecessary_box_returns,
+        reason = "\"Error\" trait expects Box'd Type"
+    )]
     fn new(error: &str) -> Box<Self> {
         Box::new(Self {
             message: error.to_string(),
